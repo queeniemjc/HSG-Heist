@@ -1,2 +1,2 @@
 # HSG-Heist
-Important: Must have both pygame and pygame-menu installed (by using -> pip install pygame, or pip install pygame-menu respectively)
+Important: Must have pygame, pygame-menu and numpy installed (by using -> pip install pygame, pip install pygame-menu etc.)
