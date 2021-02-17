@@ -234,7 +234,6 @@ def GameLoop():
 From here on out, the program is actually run
 """
 menu.mainloop(win)
-ShuffleToken()
-GameLoop()
+
     
 
