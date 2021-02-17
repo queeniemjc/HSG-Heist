@@ -10,15 +10,15 @@ import random
 pygame.init()
 
 ### Graphics
-mappic = pygame.image.load("pics\HSG_Map_Outline.jpg")
-mapnewpic = pygame.image.load("pics\MapGrass_Progress_Street.png")
-mapstartvector = np.array([41, 35])
-sturmpic = pygame.image.load("pics\Sturm30.png")
-studentpic = pygame.image.load("pics\man.png")
-studentmpic = pygame.image.load("pics\man.png")
-studentfpic = pygame.image.load("pics\woman.png")
+mappic = pygame.image.load("pics/HSG_Map_Outline.jpg")
+mapnewpic = pygame.image.load("pics/MapGrass_Progress_Street.png")
+mapstartvector = np.array([0, 0])
+sturmpic = pygame.image.load("pics/Sturm30.png")
+studentpic = pygame.image.load("pics/man.png")
+studentmpic = pygame.image.load("pics/man.png")
+studentfpic = pygame.image.load("pics/woman.png")
 
-win = pygame.display.set_mode()
+win = pygame.display.set_mode((900, 600))
 pygame.display.set_caption("HSG Heist")
 map = [
     "000000000000000000000000000000",    
