@@ -1,15 +1,33 @@
-from operator import xor
 import pygame
 import pygame_menu
 import numpy as np
 import random
+import pickle
+import neat
+import os
+from mapfile import *
 
-
+from NEAT_Implementation import GiveInputStudent
+#NEAT Stuff
+StudentAIPowered = True
+if __name__ == '__main__':
+    # Determine path to configuration file. This path manipulation is
+    # here so that the script will run successfully regardless of the
+    # current working directory.
+    with open("winner.pkl", "rb") as f:
+        genome = pickle.load(f)
+        local_dir = os.path.dirname(__file__)
+        config_path = os.path.join(local_dir, 'config-feedforward')
+        config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                         neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                         config_path)
 ### INITIALIZING VARIABLES
 
 pygame.init()
 
+
 ### Graphics
+
 mappic = pygame.image.load("pics/HSG_Map_Outline.jpg")
 mapnewpic = pygame.image.load("pics/MapGrass_Progress_Street.png")
 mapstartvector = np.array([0, 0])
@@ -17,32 +35,78 @@ sturmpic = pygame.image.load("pics/Sturm30.png")
 studentpic = pygame.image.load("pics/man.png")
 studentmpic = pygame.image.load("pics/man.png")
 studentfpic = pygame.image.load("pics/woman.png")
-
-win = pygame.display.set_mode((900, 600))
-pygame.display.set_caption("HSG Heist")
-map = [
+map3 = [
     "000000000000000000000000000000",    
     "000000000010000000000000000000",
-    "000000000110000000000011000000",
-    "000000000010100000001110000000",
+    "000000000010000000000011000000",
+    "000000000010000000001110000000",
     "000000001111111111111000000000",
-    "000000001111111000000000000000",
-    "000011111100011000011110000000",        
-    "000000011101011010000100010000",   
-    "000000010011111111000111111110",
-    "000000010111111111000100000000",                         
-    "000000010011111111111100000000",                    
-    "000011111111111111111100000000",
-    "000000001110000011011100000000",
-    "000000001110000111001100000000",
+    "000000001111111000010000000000",
+    "000001111100011000011100000000",        
+    "000001111100011000000100000000",   
+    "000001110011111111000111111110",
+    "000001110011111111000100000000",                         
+    "000001110011111111111100000000",                    
+    "000001111111111111111100000000",
+    "000000001110000011001100000000",
+    "000000001110000011001100000000",
     "000000001110000001001100000000",
     "000000001110000001001100000000", 
     "000000000100000001111100000000",              
     "000000000100000001000100000000",   
-    "000000000100000001000100100000",
+    "000000000100000001000100000000",
     "000000000111111111111111111110"                  
 ]
+map2 = [
+    "111111111111111111111111111111",
+    "111111111111111111111111111111",
+    "111111111111111111111111111111",
+    "111111111111111111111111111111",
+    "111111111111111111111111111111",
+    "111111111111111111111111111111",
+    "111111111111111111111111111111",
+    "111111111111111111111111111111",
+    "111111111111111111111111111111",
+    "111111111111111111111111111111",
+    "111111111111111111111111111111",
+    "111111111111111111111111111111",
+    "111111111111111111111111111111",
+    "111111111111111111111111111111",
+    "111111111111111111111111111111",
+    "111111111111111111111111111111",
+    "111111111111111111111111111111",
+    "111111111111111111111111111111",
+    "111111111111111111111111111111",
+    "111111111111111111111111111111"
+]
+map = [
+    "000000000000000000000000000000",    
+    "000000000010000000000000000000",
+    "000000000010000000000011000000",
+    "000000000010000000001110000000",
+    "000000001111111111111000000000",
+    "000000001111111000010000000000",
+    "000001111110001000011100000000",        
+    "000001111110001000000100000000",   
+    "000001110011111111000111111110",
+    "000001110011111111000100000000",                         
+    "000001110011111111111100000000",                    
+    "000001111111111111111100000000",
+    "000000001110000011001100000000",
+    "000000001110000011001100000000",
+    "000000001110000001001100000000",
+    "000000001110000001001100000000", 
+    "000000000100000001111100000000",              
+    "000000000100000001000100000000",   
+    "000000000100000001000100000000",
+    "000000000111111111111111111110"                  
+]
+win = pygame.display.set_mode((900, 600))
+pygame.display.set_caption("HSG Heist")
 
+
+#Game related variable
+FPS = 10
 mapwidth = 30
 mapheight = 20
 run = True
@@ -51,20 +115,21 @@ GameOver = False
 IsMenuScreen = True
 
 # Student stuff
-StudentVec = np.array([12,3])
+StudentVec = np.array([13,9])
 StudentChange = np.array([1,0])
 
 # Sturm stuff
-SturmVec = np.array([24,18])
+SturmVec = np.array([0,19])
 SturmChange = np.array([-1,0])
 
 # Token stuff
 TokenVec = np.array([3,0])
-ListOfTokenSpawnPoints = [[9,2],[12,3],[22,6],[4,6],[4,11],[11,7], [16,7], [25,7], [9,9], [15,13], [19,12], [24,18]]
+ListOfTokenSpawnPoints = [np.array([10,2]),np.array([12,4]),np.array([21,6]),np.array([5,6]),np.array([5,11]), np.array([11,8]), np.array([16,8]), np.array([25,8]), np.array([10,9]), np.array([16,13]), np.array([19,11]), np.array([24,19])]
+#[[10,2],[12,4],[21,6],[5,6],[5,11], [11,8], [16,8], [25,8], [10,9], [16,13], [19,11], [24,19]]
 
-def set_difficulty(value, difficulty):
+"""def set_difficulty(value, difficulty):
     # insert code here
-    pass
+    pass"""     
 
 def start_the_game():
     global IsMenuScreen
@@ -72,7 +137,6 @@ def start_the_game():
     ShuffleToken()
     GameLoop()
    
-
 def IsMenuScreenTrue():
     global IsMenuScreen
     return IsMenuScreen
@@ -95,16 +159,50 @@ menu.add_text_input('Get all the stuff before Sturm catches you!')
     # documentation on text inserts
     # https://pygame-menu.readthedocs.io/en/3.5.6/_source/widgets_textinput.html
 menu.add_selector('Player :', [('Maximilian', 1), ('Maximiliane', 2)], onchange=set_name)
-menu.add_selector('Difficulty :', [('Easy', 1), ('Medium', 2), ('Hard', 3)], onchange=set_difficulty)
-    # see for more information on the name selector:
-    # https://pygame-menu.readthedocs.io/en/3.5.6/_source/widgets_selector.html
 menu.add_button('Play', start_the_game)
 menu.add_button('Quit', pygame_menu.events.EXIT)
-    # see for more information on the button
-    # https://pygame-menu.readthedocs.io/en/3.5.6/_source/widgets_button.html
+ 
 
 
+def GameLoop():
+    BestStudentNet = neat.nn.FeedForwardNetwork.create(genome, config)
+    while run:
+        global FPS
+        pygame.time.delay(FPS)
+        global IsMenuScreen
+        global StudentChange
+        if GameOver == False:
+            
+            InputVec = GiveInputStudent(StudentVec, SturmVec, TokenVec)
+            StudentChange = BestStudentNet.activate(InputVec)
+            TakeInput()
+            print("whats this")
+            print(StudentChange)
+            #Normalize NN Output - to which basis vector is (x,y) leaning the most?
+            if(abs(StudentChange[0]) >= abs(StudentChange[1])):
+                StudentChange[1] = 0
+                if(StudentChange[0] > 0):
+                    StudentChange[0] = 1
+                else:
+                    StudentChange[0] = -1
+            else:
+                StudentChange[0] = 0
+                if(StudentChange[1] > 0):
+                    StudentChange[1] = 1
+                else:
+                    StudentChange[1] = -1
+            
+            print(StudentChange)
+            MoveStudent()
+            MoveSturm()
+            TokenHandler()
+            IsCaught()
+            redrawGameWindow()
+        else:
+            TakeInput()
+            pygame.display.update()
 
+    pygame.quit() 
 
 def redrawGameWindow():
     global mapstartvector #Useful so that everything is aligned nicely within the map.
@@ -123,7 +221,7 @@ def redrawGameWindow():
     win.blit(sturmpic, (SturmVec[0]*30 + mapstartvector[0], SturmVec[1]*30 + mapstartvector[1]))
 
     #Draw Token
-    global TokenVecs
+    global TokenVec
     pygame.draw.rect(win, (0,0,255), (TokenVec[0]*30 + mapstartvector[0], TokenVec[1]*30 + mapstartvector[1], 30, 30))
     pygame.display.update()
 
@@ -137,12 +235,31 @@ def TakeInput():
                 StudentChange = np.array([0,-1])
             if event.key == pygame.K_DOWN or event.key == ord('s'):
                 StudentChange = np.array([0,1])
-            if event.key == pygame.K_LEFT or event.key == ord('a'):
+            if event.key == pygame.K_LEFT or event.key == ord('a'):                
                 StudentChange = np.array([-1,0])
             if event.key == pygame.K_RIGHT or event.key == ord('d'):
                 StudentChange = np.array([1,0])
             if event.key == pygame.K_ESCAPE or event.key == pygame.K_DELETE:
-                pygame.event.post(pygame.event.Event(pygame.QUIT)) 
+                pygame.event.post(pygame.event.Event(pygame.QUIT))
+
+def IsValid(Vec):
+    global map
+    global mapheight
+    global mapwidth
+    if Vec[0] < 0:
+        return False
+    if Vec[0] > mapwidth - 1:
+        return False
+    if Vec[1] < 0:
+        return False
+    if Vec[1] > mapheight - 1:
+        return False
+    
+    #Is the movement to a valid space? (if statement needed to make sure indexing is done within the range of the map)
+    if map[Vec[1]][Vec[0]] == "0":
+            return False
+    else:
+        return True
 
 def MoveStudent():
     ## First check if the move is legal -> WITHIN BOUNDS, NOT ON INVALID SPACE, NOT ON STURM
@@ -151,32 +268,27 @@ def MoveStudent():
     global mapwidth
     global mapheight
     global map
-    CanMove = True
 
     #Is the movement within the bounds of the map? (a 30x20 grid)
-    nextx = StudentVec[0] + StudentChange[0] 
-    nexty = StudentVec[1] + StudentChange[1]
+    NextVec = StudentVec + StudentChange
+    #If you move into a wall, move randomly - otherwise the AI will stay stuck.
+    while not(IsValid(NextVec)):
+        #Is this movement legal?
+        
 
-    if nextx < 0:
-        CanMove = False
-    if nextx > mapwidth - 1:
-        CanMove = False
-    if nexty < 0:
-        CanMove = False
-    if nexty > mapheight - 1:
-        CanMove = False
-    
-    #Is the movement to a valid space? (if statement needed to make sure indexing is done within the range of the map)
-    if (nextx >= 0 and nexty >= 0 and nextx <= mapwidth - 1 and nexty <= mapheight - 1):
-         if map[nexty][nextx] == "0":
-            CanMove = False
-    
+        #If you hit a wall, move randomly to a valid space
+        PossibleMovementList = []
+        BasisVecList = [[1,0], [0,1], [-1,0], [0,-1]]
+        for i in range(4):
+            if IsValid(BasisVecList[i] + StudentVec):
+                PossibleMovementList.append(BasisVecList[i])
+        
+        Rand = random.randint(0, len(PossibleMovementList) - 1)
+        StudentChange = PossibleMovementList[Rand]
+        NextVec = StudentVec + StudentChange
+
     #Is the movement to Sturm? - Useful failsafe
-    if nextx == SturmVec[0] and nexty == SturmVec[1]:
-        CanMove = False
-    #CanMove = False
-
-    if CanMove: 
+    if not(NextVec[0] == SturmVec[0] and NextVec[1] == SturmVec[1]):
         StudentVec = StudentVec + StudentChange
 
 def MoveSturm():
@@ -210,24 +322,6 @@ def IsCaught():
         return True
     else:
         return False
-
-def GameLoop():
-    while run:
-        pygame.time.delay(100)
-        global IsMenuScreen
-
-        if GameOver == False:
-            TakeInput()
-            MoveStudent()
-            MoveSturm()
-            TokenHandler()
-            IsCaught()
-            redrawGameWindow()
-        else:
-            TakeInput()
-            pygame.display.update()
-
-    pygame.quit() 
 
 
 """
