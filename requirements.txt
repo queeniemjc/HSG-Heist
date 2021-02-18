@@ -1,0 +1,7 @@
+Install the following modules using eg. pip install in the terminal
+
+pygame
+pygame-menu
+numpy
+NEAT-python
+Pickle
