@@ -5,13 +5,11 @@ import random
 import numpy as np
 import pickle
 import math
-import mapfile
-#import visualize
 import multiprocessing
 
 runs_per_net = 20
-num_of_generations = 100
-
+num_of_generations = 700
+AddWalls = False
 
 #Game related variables
 mapwidth = 30
@@ -35,15 +33,17 @@ BestSturm = None
 TokenVec = np.array([3,0])
 ListOfTokenSpawnPoints = [np.array([10,2]),np.array([12,4]),np.array([21,6]),np.array([5,6]),np.array([5,11]), np.array([11,8]), np.array([16,8]), np.array([25,8]), np.array([10,9]), np.array([16,13]), np.array([19,11]), np.array([24,19])]
 
+generationcount = 0
+
 map2 = [
     "000000000000000000000000000000",    
     "000000000010000000000000000000",
-    "000000000010000000000011000000",
-    "000000000010000000001110000000",
-    "000000001111111111111000000000",
-    "000000001111111000001000000000",
-    "000001111100011000011100000000",        
-    "000001111100011000000100000000",   
+    "000000000010000000000000000000",
+    "000000000010000000000000000000",
+    "000000001111111111111111111110",
+    "000000001111111000010000000000",
+    "000001111110001000011100000000",        
+    "000001111110001000000100000000",   
     "000001110011111111000111111110",
     "000001110011111111000100000000",                         
     "000001110011111111111100000000",                    
@@ -57,7 +57,7 @@ map2 = [
     "000000000100000001000100000000",
     "000000000111111111111111111110"                  
 ]
-map = [
+GameMap = [
     "111111111111111111111111111111",
     "111111111111111111111111111111",
     "111111111111111111111111111111",
@@ -79,8 +79,11 @@ map = [
     "111111111111111111111111111111",
     "111111111111111111111111111111"
 ]
+
+
+
 def IsValid(Vec):
-    global map
+    global GameMap
     global mapheight
     global mapwidth
     if Vec[0] < 0:
@@ -93,7 +96,7 @@ def IsValid(Vec):
         return False
     
     #Is the movement to a valid space? (if statement needed to make sure indexing is done within the range of the map)
-    if map[Vec[1]][Vec[0]] == "0":
+    if GameMap[Vec[1]][Vec[0]] == "0":
             return False
     return True
     
@@ -101,7 +104,7 @@ def Move(Vec, Change, OpponentVec, genome):
     ## First check if the move is legal -> WITHIN BOUNDS, NOT ON INVALID SPACE, NOT ON STURM
     global mapwidth
     global mapheight
-    global map
+    global GameMap
     CanMove = True
     run = True #In case we want to abort the run after some movement failure
     #Is the movement within the bounds of the map? (a 30x20 grid)
@@ -167,16 +170,20 @@ def eval_genomes_of_student(genomes, config):
     global SturmVec
     global SturmChange
     global BestSturm
+    global generationcount
+    global GameMap
+    global map2
     if BestSturm != None:
         BestSturmNet = neat.nn.FeedForwardNetwork.create(BestSturm, config)
-
+    GameMap = ReintroduceMap(generationcount, map2, GameMap)
     for genome_id, genome in genomes:
         #Create local copies so that the parallel simulations do not accidentally change each others' global variable.
         LocalScore = 0
         
-        randx = random.randint(0, 29)
-        randy = random.randint(0, 19)
-        LocalStudentVec = np.array([randx, randy])
+
+        randn = random.randint(0, 3)
+        SpawnLocations = [np.array([13,9]), np.array([14,9]), np.array([15,9]), np.array([9,13])]
+        LocalStudentVec = SpawnLocations[randn]
         LocalStudentChange = StudentChange
         LocalSturmVec = SturmVec 
         LocalSturmChange = SturmChange
@@ -194,11 +201,9 @@ def eval_genomes_of_student(genomes, config):
         run = True
         LocalTokenVec = ShuffleToken(LocalTokenVec)
 
-        MinDistance = np.linalg.norm(LocalStudentVec - LocalTokenVec)
-
         while run:
             #print(LocalStudentVec, LocalSturmVec, LocalTokenVec)
-            LocalStudentChange = StudentNet.activate(GiveInputStudent(LocalStudentVec, LocalSturmVec, LocalTokenVec))
+            LocalStudentChange = StudentNet.activate(GiveInput(LocalStudentVec, LocalSturmVec, LocalTokenVec))
             #print(LocalStudentChange)
             #Normalize NN Output - to which basis vector is (x,y) leaning the most?
             if(abs(LocalStudentChange[0]) >= abs(LocalStudentChange[1])):
@@ -244,66 +249,68 @@ def eval_genomes_of_student(genomes, config):
                 run = False
             #run = IsCaught(LocalStudentVec, LocalSturmVec)
 
-            #Reward for getting closer to the Token
             """print("start")
             print(LocalTokenVec)
             print(type(LocalTokenVec))
             print(LocalStudentVec)
-            print(type(LocalStudentVec))
-            if(MinDistance > np.linalg.norm(LocalStudentVec - LocalTokenVec)):
-                genome.fitness += abs(MinDistance - np.linalg.norm(LocalStudentVec - LocalTokenVec))*0.5
-                MinDistance = np.linalg.norm(LocalStudentVec - LocalTokenVec)"""
+            print(type(LocalStudentVec))"""
+   
                 
             LocalRoundCount += 1
+    generationcount += 1
 
+def ReintroduceMap(generationcount, newmap, emptymap):
+    #Used to slowly ease in the NN to the addition of invalid spaces
+    # (e.g. walls) so that it can adapt its pathways
+    #_print_map(newmap)
+    #_print_map(emptymap)
+    global AddWalls
+    if(generationcount >= 100 and AddWalls):
+        DifferenceList = []
+        RandN = random.randint(0,600) 
+        for x in range(30): 
+            for y in range(20): 
+                if(newmap[y][x] != emptymap[y][x]):
+                    DifferenceList.append([x,y])
+        if len(DifferenceList) != 0:
+            index = RandN % (len(DifferenceList))
+            XRep, YRep = DifferenceList[index] 
+            leftside = emptymap[YRep][0:XRep]
+            rightside = emptymap[YRep][XRep+1:]
+            emptymap[YRep] = leftside + newmap[YRep][XRep] + rightside 
+        return emptymap
+    return emptymap
 
-
-        ###
-        
-        
-
-       
-        
-
-        #First time we simply train the StudentAI to get the tokens for 20 generations
-        #Then, we train the SturmAI to catch up with StudentAI until StudentAI drops to a certain fitness
-        #Then, we train StudentAI again
-        #Loop until they're both not bad.
-
-def eval_genomes_of_sturm(genomes, config):
-
-    pass
-
-def GiveInputStudent(LocalStudentVec, LocalSturmVec, LocalTokenVec):
-    # This function creates the input vector given to the Sturm/Student NN: A 3x3 grid around Sturm/Student + 4 further tiles + Distance to opponent + Distance to token
+def GiveInput(LocalStudentVec, LocalSturmVec, LocalTokenVec):
+    # This function creates the input vector given to the Sturm/Student NN: A 5x5 grid around Sturm/Student (+ Distance to opponent) + Distance to token
     # A valid space is encoded as a 1, an invalid space as a 0
+    InputVec = []
     HostVec = LocalStudentVec
-    OpponentVec = LocalSturmVec
-    global map
+    global GameMap
     global mapwidth
     global mapheight
     list = [-2,-1, 0, 1, 2]
     
     # First insert the 3x3 grid:
-    """
+    
     for x in list:
         for y in list:
             absx = x + HostVec[0]
             absy = y + HostVec[1]
           
-            ### if x == y == 0, then this is where Sturm is standing - and Sturm AI/Student AI doesn't need to know it is on a valid space.
+            ### if x == y == 0, then this is where the AI is standing - and Sturm AI/Student AI doesn't need to know it is on a valid space.
             if not(x == 0 and y == 0):
                 #if absx and absy are outside the grid accessing map will give an error - 
                 #so if they are outside we can handle them as invalid spaces
                 if (absx >= 0 and absy >= 0 and absx <= mapwidth - 1 and absy <= mapheight - 1):
-                    if map[absy][absx] == '0':
+                    if GameMap[absy][absx] == '0':
                         InputVec.append(0)
                     else:
                         InputVec.append(1)
                 else: 
                     InputVec.append(0)
     #The following block inputs some extra stuff to the 3x3 grid to extend SturmAI/StudentAI's range - tiles outside the grid are once again invalid
-    
+    """
     shift = [-2,2]
     for x in shift:
         absx = x + HostVec[0]
@@ -325,17 +332,18 @@ def GiveInputStudent(LocalStudentVec, LocalSturmVec, LocalTokenVec):
                 InputVec.append(1)
         else:
             InputVec.append(0)
-    
+    """
     # Distance of Sturm to Student
+    """
     InputVec.append(OpponentVec[0] - HostVec[0])
     InputVec.append(OpponentVec[1] - HostVec[1])
     """
    
 
     # Distance of Student to Token
-    InputVec = (LocalTokenVec[0] - HostVec[0], LocalTokenVec[1] - HostVec[1])
-    
-    if(len(InputVec) != 2):
+    InputVec.append(LocalTokenVec[0] - HostVec[0]) 
+    InputVec.append(LocalTokenVec[1] - HostVec[1])
+    if(len(InputVec) != 26):
         print("something's wrong")
     return InputVec
 
@@ -345,7 +353,7 @@ def GiveInputSturm(SturmVec, StudentVec):
     # A valid space is encoded as a 1, an invalid space as a 0
     HostVec = SturmVec
     OpponentVec = StudentVec
-    global map
+    global GameMap
     global mapwidth
     global mapheight
     list = [-1, 0, 1]
@@ -359,10 +367,10 @@ def GiveInputSturm(SturmVec, StudentVec):
           
             ### if x == y == 0, then this is where Sturm is standing - and Sturm AI/Student AI doesn't need to know it is on a valid space.
             if not(x == 0 and y == 0):
-                #if absx and absy are outside the grid accessing map will give an error - 
+                #if absx and absy are outside the grid accessing GameMap will give an error - 
                 #so if they are outside we can handle them as invalid spaces
                 if (absx >= 0 and absy >= 0 and absx <= mapwidth - 1 and absy <= mapheight - 1):
-                    if map[absy][absx] == '0':
+                    if GameMap[absy][absx] == '0':
                         InputVec.append(0)
                     else:
                         InputVec.append(1)
@@ -377,7 +385,7 @@ def GiveInputSturm(SturmVec, StudentVec):
             absx = x + HostVec[0]
             absy = y + HostVec[1]
             if(absx >= 0 and absy >= 0 and absx <= mapwidth - 1 and absy <= mapheight -1):
-                if map[absy][absx] == '0':
+                if GameMap[absy][absx] == '0':
                     InputVec.append(0)
                 else:
                     InputVec.append(1)
@@ -432,43 +440,6 @@ def run_student(config_file):
     #visualize.draw_net(config, winner, True)
     #node_names = {-1:'A', -2: 'B', 0:'A XOR B'}
 
-    #visualize.plot_stats(stats, ylog=False, view=True)
-    #visualize.plot_species(stats, view=True)
-
-    p = neat.Checkpointer.restore_checkpoint('neat-checkpoint-4')
-    #p.run(eval_genomes_of_student, 10)
-
-def run_sturm(config_file):
-     # Load configuration.
-    config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
-                         neat.DefaultSpeciesSet, neat.DefaultStagnation,
-                         config_file)
-
-    # Create the population, which is the top-level object for a NEAT run.
-    p = neat.Population(config)
-
-    # Add a stdout reporter to show progress in the terminal.
-    p.add_reporter(neat.StdOutReporter(True))
-    stats = neat.StatisticsReporter()
-    p.add_reporter(stats)
-    p.add_reporter(neat.Checkpointer(5))
-
-    # Run for up to 1000 generations.
-    winner = p.run(eval_genomes_of_sturm, 1000)
-
-    with open("winner.pkl", "wb") as f:
-        pickle.dump(winner, f)
-        f.close()
-    # Display the winning genome.
-    print('\nBest genome:\n{!s}'.format(winner))
-
-    # Show output of the most fit genome against training data.
-    print('\nOutput:')
-    winner_net = neat.nn.FeedForwardNetwork.create(winner, config)
-   
-
-    #node_names = {-1:'A', -2: 'B', 0:'A XOR B'}
-    #visualize.draw_net(config, winner, True, node_names=node_names)
     #visualize.plot_stats(stats, ylog=False, view=True)
     #visualize.plot_species(stats, view=True)
 
