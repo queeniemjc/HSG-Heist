@@ -1,2 +1,2 @@
 # EHA
-Important: Must have pygame, pygame-menu and numpy installed (by using -> pip install pygame, pip install pygame-menu etc.)
+Finally learn the HSG campus layout - and fight your way to glory!
